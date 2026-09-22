@@ -342,8 +342,11 @@ function abrir(d) {
   acoes.className = "acoes";
   const responder = document.createElement(d.link ? "a" : "button");
   responder.className = "primaria";
-  responder.textContent = "💬 Responder no tópico";
+  responder.textContent = d.link
+    ? "💬 Responder no tópico"
+    : "💬 Sem tópico no atendimento";
   if (d.link) responder.href = d.link;
+  else responder.disabled = true;      // morto se calado engana
   acoes.appendChild(responder);
   if (d.hist) {
     const h = document.createElement("a");
@@ -375,6 +378,22 @@ for (const aba of document.querySelectorAll(".num")) {
 busca.addEventListener("input", desenhar);
 
 const tg = window.Telegram && window.Telegram.WebApp;
+
+// Dentro de um Mini App, <a href="https://t.me/..."> nao navega: o
+// webview engole o clique e nada acontece (dono, 22/09, no botao
+// Responder). O Telegram exige openTelegramLink -- e ele so sai da tela
+// do app quando o app fecha, entao fechamos junto.
+document.addEventListener("click", (ev) => {
+  const a = ev.target.closest && ev.target.closest('a[href^="https://t.me/"]');
+  if (!a) return;
+  ev.preventDefault();
+  if (tg && tg.openTelegramLink) {
+    tg.openTelegramLink(a.href);
+    if (tg.close) tg.close();
+  } else {
+    window.open(a.href, "_blank");     // fora do Telegram, link normal
+  }
+});
 if (tg) {
   tg.ready();
   tg.expand();
