@@ -191,7 +191,10 @@ const FILAS = {e: "esperando", a: "atendimento", r: "robo"};
 // página sozinha não guarda nada de cliente.
 async function lerDadosDaURL() {
   try {
-    const cru = (location.hash || "").replace(/^#d=/, "");
+    // ?d= primeiro: o Telegram troca o # pelos dados de lançamento dele
+    // ao abrir o app. O # fica só como reserva para link antigo.
+    const cru = new URLSearchParams(location.search).get("d")
+      || (location.hash || "").replace(/^#d=/, "");
     if (!cru) return null;
     const b64 = cru.replace(/-/g, "+").replace(/_/g, "/");
     const bin = atob(b64 + "=".repeat((4 - b64.length % 4) % 4));
