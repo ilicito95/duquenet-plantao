@@ -25,9 +25,8 @@ body{margin:0;background:var(--fundo);color:var(--tinta);
   font-family:'Inter',system-ui,sans-serif;line-height:1.45;
   display:flex;flex-direction:column}
 
-/* barra do topo, como um app nativo */
 header{background:var(--topo);border-bottom:1px solid var(--borda);
-  padding:14px 16px calc(12px);display:flex;align-items:center;gap:12px;
+  padding:14px 16px 12px;display:flex;align-items:center;gap:12px;
   position:sticky;top:env(safe-area-inset-top,0px);z-index:5}
 header h1{margin:0;font-size:1.02rem;font-weight:700;letter-spacing:-.01em}
 header .hora{margin-left:auto;color:var(--suave);font-size:.78rem;
@@ -35,7 +34,6 @@ header .hora{margin-left:auto;color:var(--suave);font-size:.78rem;
 .pontinho{width:8px;height:8px;border-radius:50%;background:var(--ok);
   box-shadow:0 0 0 3px color-mix(in srgb,var(--ok) 25%,transparent)}
 
-/* faixa de números */
 .numeros{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;
   background:var(--borda)}
 .num{background:var(--topo);padding:11px 8px;text-align:center;cursor:pointer;
@@ -47,27 +45,26 @@ header .hora{margin-left:auto;color:var(--suave);font-size:.78rem;
 .num span{font-size:.7rem;color:var(--suave);letter-spacing:.02em}
 .num.alerta b{color:var(--urgente)}
 
-/* busca */
-.busca{padding:10px 14px 4px;background:var(--fundo)}
+.busca{padding:10px 14px 4px}
 .busca input{width:100%;background:var(--cartao);border:1px solid var(--borda);
   color:var(--tinta);border-radius:10px;padding:10px 12px;font-size:.9rem;
   font-family:inherit}
 .busca input::placeholder{color:var(--suave)}
 .busca input:focus{outline:2px solid var(--azul);outline-offset:1px}
 
-/* lista */
 main{flex:1;overflow-y:auto;padding:8px 14px 18px}
 .linha{display:flex;align-items:center;gap:11px;width:100%;
-  background:var(--cartao);border:1px solid var(--borda);border-left:3px solid var(--borda);
-  border-radius:10px;padding:11px 12px;margin-bottom:7px;cursor:pointer;
-  color:inherit;font-family:inherit;text-align:left}
+  background:var(--cartao);border:1px solid var(--borda);
+  border-left:3px solid var(--borda);border-radius:10px;padding:11px 12px;
+  margin-bottom:7px;cursor:pointer;color:inherit;font-family:inherit;
+  text-align:left}
 .linha:hover{background:var(--cartao2)}
 .linha.u{border-left-color:var(--urgente)}
 .linha.a{border-left-color:var(--atencao)}
 .linha.n{border-left-color:var(--ok)}
 .linha .ini{width:34px;height:34px;border-radius:9px;flex:0 0 auto;
-  background:var(--cartao2);display:flex;align-items:center;justify-content:center;
-  font-size:.8rem;font-weight:700;color:var(--suave)}
+  background:var(--cartao2);display:flex;align-items:center;
+  justify-content:center;font-size:.8rem;font-weight:700;color:var(--suave)}
 .linha .meio{flex:1;min-width:0}
 .linha .nome{font-weight:600;font-size:.92rem;white-space:nowrap;
   overflow:hidden;text-overflow:ellipsis}
@@ -80,7 +77,6 @@ main{flex:1;overflow-y:auto;padding:8px 14px 18px}
 .linha.n .t{color:var(--suave)}
 .vazio{color:var(--suave);text-align:center;padding:40px 0;font-size:.9rem}
 
-/* ficha */
 .ficha{position:fixed;inset:0;background:var(--fundo);z-index:20;
   display:flex;flex-direction:column;padding-top:env(safe-area-inset-top,0px)}
 .ficha[hidden]{display:none}
@@ -92,8 +88,10 @@ main{flex:1;overflow-y:auto;padding:8px 14px 18px}
 .ficha h2{margin:0 0 3px;font-size:1.18rem;font-weight:700}
 .chip{display:inline-block;font-size:.72rem;font-weight:600;padding:3px 9px;
   border-radius:999px;margin:6px 6px 0 0}
-.chip.u{background:color-mix(in srgb,var(--urgente) 18%,transparent);color:var(--urgente)}
-.chip.a{background:color-mix(in srgb,var(--atencao) 18%,transparent);color:var(--atencao)}
+.chip.u{background:color-mix(in srgb,var(--urgente) 18%,transparent);
+  color:var(--urgente)}
+.chip.a{background:color-mix(in srgb,var(--atencao) 18%,transparent);
+  color:var(--atencao)}
 .chip.n{background:color-mix(in srgb,var(--ok) 18%,transparent);color:var(--ok)}
 .chip.f{background:var(--cartao2);color:var(--suave)}
 .dados{margin:16px 0 0;background:var(--cartao);border:1px solid var(--borda);
@@ -103,37 +101,38 @@ main{flex:1;overflow-y:auto;padding:8px 14px 18px}
 .dados div:last-child{border-bottom:none}
 .dados span:first-child{color:var(--suave);min-width:82px}
 .dados span:last-child{font-weight:500;margin-left:auto;text-align:right}
-.balao-cli{margin-top:14px;background:var(--cartao2);border-radius:12px 12px 12px 4px;
-  padding:11px 13px;font-size:.88rem}
-.balao-cli small{display:block;color:var(--suave);font-size:.72rem;margin-bottom:3px}
+.balao-cli{margin-top:14px;background:var(--cartao2);
+  border-radius:12px 12px 12px 4px;padding:11px 13px;font-size:.88rem}
+.balao-cli small{display:block;color:var(--suave);font-size:.72rem;
+  margin-bottom:3px}
 .acoes{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:18px}
-.acoes a{display:block;text-align:center;text-decoration:none}
-.acoes a,.acoes button{padding:12px 10px;border-radius:10px;border:1px solid var(--borda);
-  background:var(--cartao);color:var(--tinta);font-family:inherit;
-  font-size:.86rem;font-weight:600;cursor:pointer}
+.acoes a,.acoes button{padding:12px 10px;border-radius:10px;
+  border:1px solid var(--borda);background:var(--cartao);color:var(--tinta);
+  font-family:inherit;font-size:.86rem;font-weight:600;cursor:pointer;
+  display:block;text-align:center;text-decoration:none}
 .acoes .primaria{background:var(--azul);border-color:var(--azul);color:#fff;
   grid-column:1/-1}
-.acoes button:hover{filter:brightness(1.12)}
-.aviso-proto{margin:18px 14px calc(14px + env(safe-area-inset-bottom,0px));
+.acoes a:hover,.acoes button:hover{filter:brightness(1.12)}
+.aviso-proto{margin:0 14px calc(14px + env(safe-area-inset-bottom,0px));
   padding:10px 12px;border:1px dashed var(--borda);border-radius:10px;
   color:var(--suave);font-size:.78rem;text-align:center}
 </style>
-
 </head>
 <body>
+
 <header>
   <span class="pontinho" aria-hidden="true"></span>
   <h1>Plantão DuqueNet</h1>
-  <span class="hora" id="hora">18:47</span>
+  <span class="hora" id="hora">--:--</span>
 </header>
 
 <div class="numeros" role="tablist">
   <button class="num alerta" role="tab" aria-selected="true" data-fila="esperando">
-    <b id="n-esperando">3</b><span>AGUARDANDO</span></button>
+    <b id="n-esperando">0</b><span>AGUARDANDO</span></button>
   <button class="num" role="tab" aria-selected="false" data-fila="atendimento">
-    <b id="n-atendimento">25</b><span>EM ATENDIMENTO</span></button>
+    <b id="n-atendimento">0</b><span>EM ATENDIMENTO</span></button>
   <button class="num" role="tab" aria-selected="false" data-fila="robo">
-    <b id="n-robo">2</b><span>COM O ROBÔ</span></button>
+    <b id="n-robo">0</b><span>COM O ROBÔ</span></button>
 </div>
 
 <div class="busca">
@@ -155,50 +154,69 @@ main{flex:1;overflow-y:auto;padding:8px 14px 18px}
 <script>
 const AGORA = new Date();
 const min = (m) => new Date(AGORA.getTime() - m * 60000);
+const FILAS = {e: "esperando", a: "atendimento", r: "robo"};
 
-// Os dados chegam DENTRO do link que a ponte monta (#d=<base64>), nunca
-// de um servidor: a rede da DuqueNet nao recebe conexao nenhuma.
-// Sem dados no link, o app mostra o exemplo -- serve de demonstracao e
-// prova que a pagina sozinha nao guarda nada de cliente.
-function lerDadosDaURL() {
+// O estado chega DENTRO do link que a ponte monta (#d=<gzip+base64>),
+// nunca de um servidor: a rede da DuqueNet não recebe conexão nenhuma.
+// Sem dados no link, o app mostra o exemplo — e isso também prova que a
+// página sozinha não guarda nada de cliente.
+async function lerDadosDaURL() {
   try {
     const cru = (location.hash || "").replace(/^#d=/, "");
     if (!cru) return null;
-    const txt = decodeURIComponent(escape(atob(
-      cru.replace(/-/g, "+").replace(/_/g, "/"))));
-    const pacote = JSON.parse(txt);
-    if (!pacote || !Array.isArray(pacote.linhas)) return null;
-    return pacote;
-  } catch (e) { return null; }
+    const b64 = cru.replace(/-/g, "+").replace(/_/g, "/");
+    const bin = atob(b64 + "=".repeat((4 - b64.length % 4) % 4));
+    const bytes = Uint8Array.from(bin, (c) => c.charCodeAt(0));
+    const fluxo = new Blob([bytes]).stream()
+      .pipeThrough(new DecompressionStream("gzip"));
+    const pacote = JSON.parse(await new Response(fluxo).text());
+    return Array.isArray(pacote.linhas) ? pacote : null;
+  } catch (e) {
+    return null;
+  }
 }
+
+const linkTopico = (chat, thread) => {
+  if (!chat || !thread) return "";
+  return "https://t.me/c/" + String(chat).replace(/^-100/, "") + "/" + thread;
+};
 
 const EXEMPLO = [
   {nome:"Maria das Graças Ayres", fila:"esperando", desde:min(589), canal:"OPA",
-   fone:"(21) 99887-7000", proto:"OPA2026103566", plano:"500 Mega",
+   fone:"21998877000", proto:"OPA2026103566",
    fala:"Boa tarde, consegui pagar hoje. Já liberou?"},
   {nome:"João Batista Pereira", fila:"esperando", desde:min(22), canal:"WPP",
-   fone:"(21) 99584-9442", proto:"—", plano:"700 Mega",
-   fala:"Tem 350 mega? E por que a instalação é 130?"},
+   fone:"21995849442", proto:"—", fala:"Tem 350 mega? Por que a taxa é 130?"},
   {nome:"Rita Santos", fila:"esperando", desde:min(4), canal:"OPA",
-   fone:"(21) 99402-0961", proto:"OPA2026103571", plano:"500 Mega",
-   fala:"Quero a segunda via do boleto por favor"},
+   fone:"21994020961", proto:"OPA2026103571", fala:"Quero a segunda via"},
   {nome:"Ana Cristina Mendes", fila:"atendimento", desde:min(6), canal:"OPA",
-   fone:"(21) 99665-5120", proto:"OPA2026103544", plano:"700 Mega",
-   fala:"Perfeito, obrigada!"},
+   fone:"21996655120", proto:"OPA2026103544", fala:"Perfeito, obrigada!"},
   {nome:"Carlos Farly Santos", fila:"atendimento", desde:min(41), canal:"OPA",
-   fone:"(21) 99626-5886", proto:"OPA2026103388", plano:"500 Mega",
-   fala:"Continuo sem internet 🛜"},
+   fone:"21996265886", proto:"OPA2026103388", fala:"Continuo sem internet"},
   {nome:"Sônia Maria dos Santos", fila:"robo", desde:min(2), canal:"OPA",
-   fone:"(21) 99866-9232", proto:"OPA2026103590", plano:"500 Mega", fala:"Oi"},
+   fone:"21998669232", proto:"OPA2026103590", fala:"Oi"},
 ];
 
-const PACOTE = lerDadosDaURL();
-const DEMO = !PACOTE;
-const DADOS = DEMO ? EXEMPLO : PACOTE.linhas.map((l) => ({
-  nome: l.n || "?", fila: l.f || "esperando",
-  desde: new Date((l.t || 0) * 1000), canal: l.c || "",
-  fone: l.p || "", proto: l.o || "—", plano: l.g || "",
-  fala: l.u || "", link: l.l || "", hist: l.h || ""}));
+let PACOTE = null;
+let DEMO = true;
+let DADOS = EXEMPLO;
+let filaAtual = "esperando";
+
+function aplicarPacote(pacote) {
+  PACOTE = pacote;
+  DEMO = !pacote;
+  DADOS = DEMO ? EXEMPLO : pacote.linhas.map((l) => ({
+    nome: l.n || "?",
+    fila: FILAS[l.f] || "esperando",
+    desde: new Date((l.t || 0) * 1000),
+    canal: l.c || "",
+    fone: l.p || "",
+    proto: l.o || "—",
+    fala: l.u || "",
+    link: linkTopico(pacote.cg, l.g),
+    hist: linkTopico(pacote.ch, l.h),
+  }));
+}
 
 const fmt = (d) => {
   const m = Math.max(0, Math.round((AGORA - d) / 60000));
@@ -213,8 +231,13 @@ const grau = (d) => {
 };
 const iniciais = (n) => n.split(" ").filter(Boolean).slice(0, 2)
   .map((p) => p[0]).join("").toUpperCase();
+const fone = (f) => {
+  const s = String(f).replace(/\D/g, "").slice(-11);
+  return s.length >= 10
+    ? "(" + s.slice(0, 2) + ") " + s.slice(2, -4) + "-" + s.slice(-4)
+    : f;
+};
 
-let filaAtual = "esperando";
 const lista = document.getElementById("lista");
 const busca = document.getElementById("busca");
 
@@ -224,7 +247,7 @@ function contar() {
       DADOS.filter((d) => d.fila === f).length;
   }
   document.getElementById("hora").textContent =
-    AGORA.toTimeString().slice(0, 5);
+    (PACOTE ? new Date(PACOTE.em * 1000) : AGORA).toTimeString().slice(0, 5);
 }
 
 function desenhar() {
@@ -232,7 +255,7 @@ function desenhar() {
   const itens = DADOS
     .filter((d) => d.fila === filaAtual)
     .filter((d) => !termo || d.nome.toLowerCase().includes(termo)
-                          || d.fone.includes(termo))
+                          || String(d.fone).includes(termo.replace(/\D/g, "")))
     .sort((a, b) => a.desde - b.desde);
   lista.innerHTML = "";
   if (!itens.length) {
@@ -243,10 +266,13 @@ function desenhar() {
     const b = document.createElement("button");
     b.className = "linha " + grau(d.desde);
     b.type = "button";
-    b.innerHTML = `<span class="ini">${iniciais(d.nome)}</span>
-      <span class="meio"><span class="nome">${d.nome}</span>
-      <span class="fala">${d.canal} · ${d.fala}</span></span>
-      <span class="t">${fmt(d.desde)}</span>`;
+    b.innerHTML = '<span class="ini"></span><span class="meio">'
+      + '<span class="nome"></span><span class="fala"></span></span>'
+      + '<span class="t"></span>';
+    b.querySelector(".ini").textContent = iniciais(d.nome);
+    b.querySelector(".nome").textContent = d.nome;
+    b.querySelector(".fala").textContent = d.canal + " · " + (d.fala || "—");
+    b.querySelector(".t").textContent = fmt(d.desde);
     b.addEventListener("click", () => abrir(d));
     lista.appendChild(b);
   }
@@ -254,36 +280,78 @@ function desenhar() {
 
 const ficha = document.getElementById("ficha");
 const corpo = document.getElementById("ficha-corpo");
+
 function abrir(d) {
   const g = grau(d.desde);
-  const rotulo = {esperando:"Aguardando", atendimento:"Em atendimento",
-                  robo:"Com o robô"}[d.fila];
-  corpo.innerHTML = `
-    <h2>${d.nome}</h2>
-    <div>
-      <span class="chip ${g}">${fmt(d.desde)} sem resposta</span>
-      <span class="chip f">${rotulo}</span>
-      <span class="chip f">${d.canal}</span>
-    </div>
-    <div class="balao-cli"><small>última mensagem do cliente</small>${d.fala}</div>
-    <div class="dados">
-      <div><span>Telefone</span><span>${d.fone}</span></div>
-      <div><span>Protocolo</span><span>${d.proto}</span></div>
-      <div><span>Plano</span><span>${d.plano}</span></div>
-    </div>
-    <div class="acoes">
-      ${d.link ? `<a class="primaria" href="${d.link}">💬 Responder no tópico</a>`
-               : '<button class="primaria" type="button">💬 Responder no tópico</button>'}
-      ${d.hist ? `<a href="${d.hist}">📜 Histórico</a>`
-               : '<button type="button">📜 Histórico</button>'}
-      <button type="button">🤖 Passar ao Duque</button>
-      <button type="button">✅ Encerrar</button>
-    </div>`;
+  const rotulo = {esperando: "Aguardando", atendimento: "Em atendimento",
+                  robo: "Com o robô"}[d.fila];
+  corpo.innerHTML = "";
+
+  const h2 = document.createElement("h2");
+  h2.textContent = d.nome;
+  corpo.appendChild(h2);
+
+  const chips = document.createElement("div");
+  for (const [cls, txt] of [[g, fmt(d.desde) + " sem resposta"],
+                            ["f", rotulo], ["f", d.canal]]) {
+    if (!txt) continue;
+    const c = document.createElement("span");
+    c.className = "chip " + cls;
+    c.textContent = txt;
+    chips.appendChild(c);
+  }
+  corpo.appendChild(chips);
+
+  if (d.fala) {
+    const balao = document.createElement("div");
+    balao.className = "balao-cli";
+    const s = document.createElement("small");
+    s.textContent = "última mensagem do cliente";
+    balao.appendChild(s);
+    balao.appendChild(document.createTextNode(d.fala));
+    corpo.appendChild(balao);
+  }
+
+  const dados = document.createElement("div");
+  dados.className = "dados";
+  for (const [rot, val] of [["Telefone", d.fone ? fone(d.fone) : ""],
+                            ["Protocolo", d.proto]]) {
+    if (!val || val === "—") continue;
+    const linha = document.createElement("div");
+    const a = document.createElement("span");
+    a.textContent = rot;
+    const b = document.createElement("span");
+    b.textContent = val;
+    linha.append(a, b);
+    dados.appendChild(linha);
+  }
+  if (dados.children.length) corpo.appendChild(dados);
+
+  const acoes = document.createElement("div");
+  acoes.className = "acoes";
+  const responder = document.createElement(d.link ? "a" : "button");
+  responder.className = "primaria";
+  responder.textContent = "💬 Responder no tópico";
+  if (d.link) responder.href = d.link;
+  acoes.appendChild(responder);
+  if (d.hist) {
+    const h = document.createElement("a");
+    h.href = d.hist;
+    h.textContent = "📜 Histórico";
+    acoes.appendChild(h);
+  }
+  for (const txt of ["🤖 Passar ao Duque", "✅ Encerrar"]) {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.textContent = txt;
+    acoes.appendChild(b);
+  }
+  corpo.appendChild(acoes);
   ficha.hidden = false;
 }
+
 document.getElementById("voltar")
   .addEventListener("click", () => { ficha.hidden = true; });
-
 for (const aba of document.querySelectorAll(".num")) {
   aba.addEventListener("click", () => {
     for (const o of document.querySelectorAll(".num")) {
@@ -294,6 +362,7 @@ for (const aba of document.querySelectorAll(".num")) {
   });
 }
 busca.addEventListener("input", desenhar);
+
 const tg = window.Telegram && window.Telegram.WebApp;
 if (tg) {
   tg.ready();
@@ -302,12 +371,15 @@ if (tg) {
     document.documentElement.setAttribute("data-theme", "light");
   }
 }
-document.getElementById("rodape").textContent = DEMO
-  ? "Dados de exemplo — este link não traz o plantão real."
-  : `Plantão de ${new Date((PACOTE.em || 0) * 1000).toLocaleString("pt-BR")}`;
-contar();
-desenhar();
-</script>
 
+lerDadosDaURL().then((pacote) => {
+  aplicarPacote(pacote);
+  document.getElementById("rodape").textContent = DEMO
+    ? "Dados de exemplo — este link não traz o plantão real."
+    : "Plantão de " + new Date(PACOTE.em * 1000).toLocaleString("pt-BR");
+  contar();
+  desenhar();
+});
+</script>
 </body>
 </html>
