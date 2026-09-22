@@ -116,6 +116,12 @@ main{flex:1;overflow-y:auto;padding:8px 14px 18px}
 .aviso-proto{margin:0 14px calc(14px + env(safe-area-inset-bottom,0px));
   padding:10px 12px;border:1px dashed var(--borda);border-radius:10px;
   color:var(--suave);font-size:.78rem;text-align:center}
+/* Um link direto (t.me/bot/plantao) nao traz estado: a pagina cai no
+   exemplo, e nomes inventados num painel de plantao sao indistinguiveis
+   dos reais a menos que se diga, no alto e sem rolar. */
+.tarja-demo{margin:0 0 10px;padding:10px 12px;border-radius:10px;
+  background:rgba(245,195,70,.14);border:1px solid rgba(245,195,70,.45);
+  color:var(--texto);font-size:.82rem;line-height:1.45}
 </style>
 </head>
 <body>
@@ -125,6 +131,11 @@ main{flex:1;overflow-y:auto;padding:8px 14px 18px}
   <h1>Plantão DuqueNet</h1>
   <span class="hora" id="hora">--:--</span>
 </header>
+
+<p class="tarja-demo" id="tarja" hidden>
+  <b>Exemplo.</b> Estes nomes são inventados — não é o plantão de agora.
+  Abra pelo botão <b>Plantão</b> da conversa com o bot.
+</p>
 
 <div class="numeros" role="tablist">
   <button class="num alerta" role="tab" aria-selected="true" data-fila="esperando">
@@ -374,6 +385,7 @@ if (tg) {
 
 lerDadosDaURL().then((pacote) => {
   aplicarPacote(pacote);
+  document.getElementById("tarja").hidden = !DEMO;
   document.getElementById("rodape").textContent = DEMO
     ? "Dados de exemplo — este link não traz o plantão real."
     : "Plantão de " + new Date(PACOTE.em * 1000).toLocaleString("pt-BR");
