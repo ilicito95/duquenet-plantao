@@ -1,0 +1,313 @@
+<!doctype html>
+<html lang="pt-br">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<title>Plantão DuqueNet</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap">
+<style>
+:root{
+  --fundo:#0E1621; --topo:#17212B; --cartao:#1C2733; --cartao2:#22303F;
+  --borda:#2A3A4A; --tinta:#F2F6FA; --suave:#8CA2B8;
+  --azul:#3E8FD6; --azul-forte:#62BCF9;
+  --urgente:#E8524F; --atencao:#E3A13C; --ok:#4CAF7D;
+}
+:root[data-theme="light"]{
+  --fundo:#EEF2F6; --topo:#FFFFFF; --cartao:#FFFFFF; --cartao2:#F5F8FB;
+  --borda:#DCE4EC; --tinta:#16202B; --suave:#5E7085;
+  --azul:#2B6FA8; --azul-forte:#1F5C8F;
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;background:var(--fundo);color:var(--tinta);
+  font-family:'Inter',system-ui,sans-serif;line-height:1.45;
+  display:flex;flex-direction:column}
+
+/* barra do topo, como um app nativo */
+header{background:var(--topo);border-bottom:1px solid var(--borda);
+  padding:14px 16px calc(12px);display:flex;align-items:center;gap:12px;
+  position:sticky;top:env(safe-area-inset-top,0px);z-index:5}
+header h1{margin:0;font-size:1.02rem;font-weight:700;letter-spacing:-.01em}
+header .hora{margin-left:auto;color:var(--suave);font-size:.78rem;
+  font-family:'JetBrains Mono',monospace}
+.pontinho{width:8px;height:8px;border-radius:50%;background:var(--ok);
+  box-shadow:0 0 0 3px color-mix(in srgb,var(--ok) 25%,transparent)}
+
+/* faixa de números */
+.numeros{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;
+  background:var(--borda)}
+.num{background:var(--topo);padding:11px 8px;text-align:center;cursor:pointer;
+  border:none;color:inherit;font-family:inherit;border-top:2px solid transparent}
+.num[aria-selected="true"]{background:var(--cartao2);
+  border-top-color:var(--azul-forte)}
+.num b{display:block;font-size:1.45rem;font-weight:700;line-height:1.1;
+  font-variant-numeric:tabular-nums}
+.num span{font-size:.7rem;color:var(--suave);letter-spacing:.02em}
+.num.alerta b{color:var(--urgente)}
+
+/* busca */
+.busca{padding:10px 14px 4px;background:var(--fundo)}
+.busca input{width:100%;background:var(--cartao);border:1px solid var(--borda);
+  color:var(--tinta);border-radius:10px;padding:10px 12px;font-size:.9rem;
+  font-family:inherit}
+.busca input::placeholder{color:var(--suave)}
+.busca input:focus{outline:2px solid var(--azul);outline-offset:1px}
+
+/* lista */
+main{flex:1;overflow-y:auto;padding:8px 14px 18px}
+.linha{display:flex;align-items:center;gap:11px;width:100%;
+  background:var(--cartao);border:1px solid var(--borda);border-left:3px solid var(--borda);
+  border-radius:10px;padding:11px 12px;margin-bottom:7px;cursor:pointer;
+  color:inherit;font-family:inherit;text-align:left}
+.linha:hover{background:var(--cartao2)}
+.linha.u{border-left-color:var(--urgente)}
+.linha.a{border-left-color:var(--atencao)}
+.linha.n{border-left-color:var(--ok)}
+.linha .ini{width:34px;height:34px;border-radius:9px;flex:0 0 auto;
+  background:var(--cartao2);display:flex;align-items:center;justify-content:center;
+  font-size:.8rem;font-weight:700;color:var(--suave)}
+.linha .meio{flex:1;min-width:0}
+.linha .nome{font-weight:600;font-size:.92rem;white-space:nowrap;
+  overflow:hidden;text-overflow:ellipsis}
+.linha .fala{color:var(--suave);font-size:.78rem;white-space:nowrap;
+  overflow:hidden;text-overflow:ellipsis}
+.linha .t{font-family:'JetBrains Mono',monospace;font-size:.82rem;
+  font-weight:500;flex:0 0 auto;font-variant-numeric:tabular-nums}
+.linha.u .t{color:var(--urgente)}
+.linha.a .t{color:var(--atencao)}
+.linha.n .t{color:var(--suave)}
+.vazio{color:var(--suave);text-align:center;padding:40px 0;font-size:.9rem}
+
+/* ficha */
+.ficha{position:fixed;inset:0;background:var(--fundo);z-index:20;
+  display:flex;flex-direction:column;padding-top:env(safe-area-inset-top,0px)}
+.ficha[hidden]{display:none}
+.ficha-topo{background:var(--topo);border-bottom:1px solid var(--borda);
+  padding:12px 14px;display:flex;align-items:center;gap:10px}
+.voltar{background:none;border:none;color:var(--azul-forte);font-size:.9rem;
+  font-family:inherit;cursor:pointer;padding:4px 2px;font-weight:600}
+.ficha-corpo{flex:1;overflow-y:auto;padding:16px 16px 20px}
+.ficha h2{margin:0 0 3px;font-size:1.18rem;font-weight:700}
+.chip{display:inline-block;font-size:.72rem;font-weight:600;padding:3px 9px;
+  border-radius:999px;margin:6px 6px 0 0}
+.chip.u{background:color-mix(in srgb,var(--urgente) 18%,transparent);color:var(--urgente)}
+.chip.a{background:color-mix(in srgb,var(--atencao) 18%,transparent);color:var(--atencao)}
+.chip.n{background:color-mix(in srgb,var(--ok) 18%,transparent);color:var(--ok)}
+.chip.f{background:var(--cartao2);color:var(--suave)}
+.dados{margin:16px 0 0;background:var(--cartao);border:1px solid var(--borda);
+  border-radius:12px;overflow:hidden}
+.dados div{display:flex;gap:12px;padding:9px 13px;font-size:.86rem;
+  border-bottom:1px solid var(--borda)}
+.dados div:last-child{border-bottom:none}
+.dados span:first-child{color:var(--suave);min-width:82px}
+.dados span:last-child{font-weight:500;margin-left:auto;text-align:right}
+.balao-cli{margin-top:14px;background:var(--cartao2);border-radius:12px 12px 12px 4px;
+  padding:11px 13px;font-size:.88rem}
+.balao-cli small{display:block;color:var(--suave);font-size:.72rem;margin-bottom:3px}
+.acoes{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:18px}
+.acoes a{display:block;text-align:center;text-decoration:none}
+.acoes a,.acoes button{padding:12px 10px;border-radius:10px;border:1px solid var(--borda);
+  background:var(--cartao);color:var(--tinta);font-family:inherit;
+  font-size:.86rem;font-weight:600;cursor:pointer}
+.acoes .primaria{background:var(--azul);border-color:var(--azul);color:#fff;
+  grid-column:1/-1}
+.acoes button:hover{filter:brightness(1.12)}
+.aviso-proto{margin:18px 14px calc(14px + env(safe-area-inset-bottom,0px));
+  padding:10px 12px;border:1px dashed var(--borda);border-radius:10px;
+  color:var(--suave);font-size:.78rem;text-align:center}
+</style>
+
+</head>
+<body>
+<header>
+  <span class="pontinho" aria-hidden="true"></span>
+  <h1>Plantão DuqueNet</h1>
+  <span class="hora" id="hora">18:47</span>
+</header>
+
+<div class="numeros" role="tablist">
+  <button class="num alerta" role="tab" aria-selected="true" data-fila="esperando">
+    <b id="n-esperando">3</b><span>AGUARDANDO</span></button>
+  <button class="num" role="tab" aria-selected="false" data-fila="atendimento">
+    <b id="n-atendimento">25</b><span>EM ATENDIMENTO</span></button>
+  <button class="num" role="tab" aria-selected="false" data-fila="robo">
+    <b id="n-robo">2</b><span>COM O ROBÔ</span></button>
+</div>
+
+<div class="busca">
+  <input id="busca" type="search" placeholder="Buscar por nome ou número…"
+         autocomplete="off">
+</div>
+
+<main id="lista"></main>
+
+<section class="ficha" id="ficha" hidden>
+  <div class="ficha-topo">
+    <button class="voltar" id="voltar" type="button">← Voltar</button>
+  </div>
+  <div class="ficha-corpo" id="ficha-corpo"></div>
+</section>
+
+<p class="aviso-proto" id="rodape">carregando…</p>
+
+<script>
+const AGORA = new Date();
+const min = (m) => new Date(AGORA.getTime() - m * 60000);
+
+// Os dados chegam DENTRO do link que a ponte monta (#d=<base64>), nunca
+// de um servidor: a rede da DuqueNet nao recebe conexao nenhuma.
+// Sem dados no link, o app mostra o exemplo -- serve de demonstracao e
+// prova que a pagina sozinha nao guarda nada de cliente.
+function lerDadosDaURL() {
+  try {
+    const cru = (location.hash || "").replace(/^#d=/, "");
+    if (!cru) return null;
+    const txt = decodeURIComponent(escape(atob(
+      cru.replace(/-/g, "+").replace(/_/g, "/"))));
+    const pacote = JSON.parse(txt);
+    if (!pacote || !Array.isArray(pacote.linhas)) return null;
+    return pacote;
+  } catch (e) { return null; }
+}
+
+const EXEMPLO = [
+  {nome:"Maria das Graças Ayres", fila:"esperando", desde:min(589), canal:"OPA",
+   fone:"(21) 99887-7000", proto:"OPA2026103566", plano:"500 Mega",
+   fala:"Boa tarde, consegui pagar hoje. Já liberou?"},
+  {nome:"João Batista Pereira", fila:"esperando", desde:min(22), canal:"WPP",
+   fone:"(21) 99584-9442", proto:"—", plano:"700 Mega",
+   fala:"Tem 350 mega? E por que a instalação é 130?"},
+  {nome:"Rita Santos", fila:"esperando", desde:min(4), canal:"OPA",
+   fone:"(21) 99402-0961", proto:"OPA2026103571", plano:"500 Mega",
+   fala:"Quero a segunda via do boleto por favor"},
+  {nome:"Ana Cristina Mendes", fila:"atendimento", desde:min(6), canal:"OPA",
+   fone:"(21) 99665-5120", proto:"OPA2026103544", plano:"700 Mega",
+   fala:"Perfeito, obrigada!"},
+  {nome:"Carlos Farly Santos", fila:"atendimento", desde:min(41), canal:"OPA",
+   fone:"(21) 99626-5886", proto:"OPA2026103388", plano:"500 Mega",
+   fala:"Continuo sem internet 🛜"},
+  {nome:"Sônia Maria dos Santos", fila:"robo", desde:min(2), canal:"OPA",
+   fone:"(21) 99866-9232", proto:"OPA2026103590", plano:"500 Mega", fala:"Oi"},
+];
+
+const PACOTE = lerDadosDaURL();
+const DEMO = !PACOTE;
+const DADOS = DEMO ? EXEMPLO : PACOTE.linhas.map((l) => ({
+  nome: l.n || "?", fila: l.f || "esperando",
+  desde: new Date((l.t || 0) * 1000), canal: l.c || "",
+  fone: l.p || "", proto: l.o || "—", plano: l.g || "",
+  fala: l.u || "", link: l.l || "", hist: l.h || ""}));
+
+const fmt = (d) => {
+  const m = Math.max(0, Math.round((AGORA - d) / 60000));
+  if (m < 60) return m + "min";
+  const h = Math.floor(m / 60), r = m % 60;
+  if (h < 24) return h + "h" + String(r).padStart(2, "0");
+  return Math.floor(h / 24) + "d" + String(h % 24).padStart(2, "0") + "h";
+};
+const grau = (d) => {
+  const m = (AGORA - d) / 60000;
+  return m >= 60 ? "u" : m >= 15 ? "a" : "n";
+};
+const iniciais = (n) => n.split(" ").filter(Boolean).slice(0, 2)
+  .map((p) => p[0]).join("").toUpperCase();
+
+let filaAtual = "esperando";
+const lista = document.getElementById("lista");
+const busca = document.getElementById("busca");
+
+function contar() {
+  for (const f of ["esperando", "atendimento", "robo"]) {
+    document.getElementById("n-" + f).textContent =
+      DADOS.filter((d) => d.fila === f).length;
+  }
+  document.getElementById("hora").textContent =
+    AGORA.toTimeString().slice(0, 5);
+}
+
+function desenhar() {
+  const termo = busca.value.trim().toLowerCase();
+  const itens = DADOS
+    .filter((d) => d.fila === filaAtual)
+    .filter((d) => !termo || d.nome.toLowerCase().includes(termo)
+                          || d.fone.includes(termo))
+    .sort((a, b) => a.desde - b.desde);
+  lista.innerHTML = "";
+  if (!itens.length) {
+    lista.innerHTML = '<p class="vazio">Ninguém nesta fila agora.</p>';
+    return;
+  }
+  for (const d of itens) {
+    const b = document.createElement("button");
+    b.className = "linha " + grau(d.desde);
+    b.type = "button";
+    b.innerHTML = `<span class="ini">${iniciais(d.nome)}</span>
+      <span class="meio"><span class="nome">${d.nome}</span>
+      <span class="fala">${d.canal} · ${d.fala}</span></span>
+      <span class="t">${fmt(d.desde)}</span>`;
+    b.addEventListener("click", () => abrir(d));
+    lista.appendChild(b);
+  }
+}
+
+const ficha = document.getElementById("ficha");
+const corpo = document.getElementById("ficha-corpo");
+function abrir(d) {
+  const g = grau(d.desde);
+  const rotulo = {esperando:"Aguardando", atendimento:"Em atendimento",
+                  robo:"Com o robô"}[d.fila];
+  corpo.innerHTML = `
+    <h2>${d.nome}</h2>
+    <div>
+      <span class="chip ${g}">${fmt(d.desde)} sem resposta</span>
+      <span class="chip f">${rotulo}</span>
+      <span class="chip f">${d.canal}</span>
+    </div>
+    <div class="balao-cli"><small>última mensagem do cliente</small>${d.fala}</div>
+    <div class="dados">
+      <div><span>Telefone</span><span>${d.fone}</span></div>
+      <div><span>Protocolo</span><span>${d.proto}</span></div>
+      <div><span>Plano</span><span>${d.plano}</span></div>
+    </div>
+    <div class="acoes">
+      ${d.link ? `<a class="primaria" href="${d.link}">💬 Responder no tópico</a>`
+               : '<button class="primaria" type="button">💬 Responder no tópico</button>'}
+      ${d.hist ? `<a href="${d.hist}">📜 Histórico</a>`
+               : '<button type="button">📜 Histórico</button>'}
+      <button type="button">🤖 Passar ao Duque</button>
+      <button type="button">✅ Encerrar</button>
+    </div>`;
+  ficha.hidden = false;
+}
+document.getElementById("voltar")
+  .addEventListener("click", () => { ficha.hidden = true; });
+
+for (const aba of document.querySelectorAll(".num")) {
+  aba.addEventListener("click", () => {
+    for (const o of document.querySelectorAll(".num")) {
+      o.setAttribute("aria-selected", String(o === aba));
+    }
+    filaAtual = aba.dataset.fila;
+    desenhar();
+  });
+}
+busca.addEventListener("input", desenhar);
+const tg = window.Telegram && window.Telegram.WebApp;
+if (tg) {
+  tg.ready();
+  tg.expand();
+  if (tg.colorScheme === "light") {
+    document.documentElement.setAttribute("data-theme", "light");
+  }
+}
+document.getElementById("rodape").textContent = DEMO
+  ? "Dados de exemplo — este link não traz o plantão real."
+  : `Plantão de ${new Date((PACOTE.em || 0) * 1000).toLocaleString("pt-BR")}`;
+contar();
+desenhar();
+</script>
+
+</body>
+</html>
