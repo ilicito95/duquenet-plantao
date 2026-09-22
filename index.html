@@ -121,7 +121,24 @@ main{flex:1;overflow-y:auto;padding:8px 14px 18px}
    dos reais a menos que se diga, no alto e sem rolar. */
 .tarja-demo{margin:0 0 10px;padding:10px 12px;border-radius:10px;
   background:rgba(245,195,70,.14);border:1px solid rgba(245,195,70,.45);
-  color:var(--texto);font-size:.82rem;line-height:1.45}
+  color:var(--tinta);font-size:.82rem;line-height:1.45}
+.fio{display:flex;flex-direction:column;gap:6px;margin-top:14px}
+.fio > div{max-width:88%;padding:9px 12px;border-radius:12px;font-size:.88rem;
+  line-height:1.4;white-space:pre-wrap;word-break:break-word}
+.fala-cli{align-self:flex-start;background:var(--cartao2);
+  border-bottom-left-radius:4px}
+.fala-eq{align-self:flex-end;background:var(--azul);color:#fff;
+  border-bottom-right-radius:4px}
+.fala-robo{align-self:flex-end;background:var(--cartao);
+  border:1px solid var(--borda);border-bottom-right-radius:4px}
+.fala-robo small{display:block;color:var(--suave);font-size:.7rem;
+  margin-bottom:2px}
+.caixa{display:flex;gap:8px;margin-top:14px;align-items:stretch}
+.caixa textarea{flex:1;min-width:0;resize:none;padding:10px 12px;
+  border-radius:10px;border:1px solid var(--borda);background:var(--cartao);
+  color:var(--tinta);font:inherit;font-size:.9rem}
+.caixa button{padding:0 16px;border-radius:10px;border:none;
+  background:var(--azul);color:#fff;font:inherit;font-weight:600}
 </style>
 </head>
 <body>
@@ -130,6 +147,7 @@ main{flex:1;overflow-y:auto;padding:8px 14px 18px}
   <span class="pontinho" aria-hidden="true"></span>
   <h1>Plantão DuqueNet</h1>
   <span class="hora" id="hora">--:--</span>
+  <button id="atualizar" type="button" title="Atualizar" style="border:none;background:none;color:inherit;font:inherit;cursor:pointer;padding:4px 6px">🔄</button>
 </header>
 
 <p class="tarja-demo" id="tarja" hidden>
@@ -224,6 +242,8 @@ function aplicarPacote(pacote) {
     fone: l.p || "",
     proto: l.o || "—",
     fala: l.u || "",
+    chave: l.k || "",
+    falas: Array.isArray(l.m) ? l.m : [],
     link: linkTopico(pacote.cg, l.g),
     hist: linkTopico(pacote.ch, l.h),
   }));
@@ -313,7 +333,25 @@ function abrir(d) {
   }
   corpo.appendChild(chips);
 
-  if (d.fala) {
+  const falas = d.falas || [];
+  if (falas.length) {
+    // O gêmeo dentro do app: as últimas falas, cliente à esquerda,
+    // equipe e robô à direita — como qualquer conversa.
+    const fio = document.createElement("div");
+    fio.className = "fio";
+    for (const [quem, texto] of falas) {
+      const b = document.createElement("div");
+      b.className = "fala-" + (quem === 0 ? "cli" : quem === 2 ? "robo" : "eq");
+      if (quem === 2) {
+        const s = document.createElement("small");
+        s.textContent = "🤖 Duque";
+        b.appendChild(s);
+      }
+      b.appendChild(document.createTextNode(texto));
+      fio.appendChild(b);
+    }
+    corpo.appendChild(fio);
+  } else if (d.fala) {
     const balao = document.createElement("div");
     balao.className = "balao-cli";
     const s = document.createElement("small");
@@ -338,27 +376,47 @@ function abrir(d) {
   }
   if (dados.children.length) corpo.appendChild(dados);
 
+  // Responder: o que se digita aqui vai ao cliente, como no tópico.
+  const caixa = document.createElement("div");
+  caixa.className = "caixa";
+  const ta = document.createElement("textarea");
+  ta.id = "resposta";
+  ta.rows = 2;
+  ta.placeholder = "Responder a " + d.nome.split(" ")[0] + "…";
+  const enviar = document.createElement("button");
+  enviar.type = "button";
+  enviar.className = "primaria";
+  enviar.textContent = "Enviar";
+  enviar.addEventListener("click", () => {
+    const t = ta.value.trim();
+    if (t) pedir(d, t);
+  });
+  caixa.append(ta, enviar);
+  corpo.appendChild(caixa);
+
+  // O menu: cada botão é um comando do tópico, sem a barra.
   const acoes = document.createElement("div");
   acoes.className = "acoes";
-  const responder = document.createElement(d.link ? "a" : "button");
-  responder.className = "primaria";
-  responder.textContent = d.link
-    ? "💬 Responder no tópico"
-    : "💬 Sem tópico no atendimento";
-  if (d.link) responder.href = d.link;
-  else responder.disabled = true;      // morto se calado engana
-  acoes.appendChild(responder);
+  const MENU = [["✅ Encerrar", "/encerrar"], ["🤖 Passar ao Duque", "/duque"],
+                ["🧾 Boleto", "/boleto"], ["💠 PIX", "/pix"]];
+  for (const [txt, cmd] of MENU) {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.textContent = txt;
+    b.addEventListener("click", () => pedir(d, cmd));
+    acoes.appendChild(b);
+  }
+  if (d.link) {
+    const a = document.createElement("a");
+    a.href = d.link;
+    a.textContent = "💬 Tópico";
+    acoes.appendChild(a);
+  }
   if (d.hist) {
     const h = document.createElement("a");
     h.href = d.hist;
     h.textContent = "📜 Histórico";
     acoes.appendChild(h);
-  }
-  for (const txt of ["🤖 Passar ao Duque", "✅ Encerrar"]) {
-    const b = document.createElement("button");
-    b.type = "button";
-    b.textContent = txt;
-    acoes.appendChild(b);
   }
   corpo.appendChild(acoes);
   ficha.hidden = false;
@@ -378,6 +436,26 @@ for (const aba of document.querySelectorAll(".num")) {
 busca.addEventListener("input", desenhar);
 
 const tg = window.Telegram && window.Telegram.WebApp;
+
+// O único caminho de volta que não abre porta na rede: sendData entrega
+// o pedido ao bot pelo próprio Telegram — e só existe quando o app foi
+// aberto pelo botão de TECLADO da conversa com o bot. O app fecha ao
+// enviar; a resposta do tópico chega na conversa, com o botão renovado.
+function pedir(d, texto) {
+  const pedido = JSON.stringify({c: (d.canal || "").toLowerCase() === "wpp"
+                                    ? "wa" : (d.canal || "").toLowerCase(),
+                                 k: d.chave, t: texto});
+  if (DEMO) { alert("Exemplo: nada é enviado. Abra pelo botão Plantão do bot."); return; }
+  if (!d.chave) { alert("Esta conversa não tem chave — abra o painel de novo."); return; }
+  if (!(tg && tg.sendData)) { alert("Abra pelo botão Plantão na conversa com o bot."); return; }
+  tg.sendData(pedido);
+}
+document.addEventListener("click", (ev) => {
+  const b = ev.target.closest && ev.target.closest("#atualizar");
+  if (!b) return;
+  if (tg && tg.sendData && !DEMO) tg.sendData(JSON.stringify({t: "/plantao"}));
+  else location.reload();
+});
 
 // Dentro de um Mini App, <a href="https://t.me/..."> nao navega: o
 // webview engole o clique e nada acontece (dono, 22/09, no botao
