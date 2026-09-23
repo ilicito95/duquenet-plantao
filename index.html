@@ -139,6 +139,25 @@ main{flex:1;overflow-y:auto;padding:8px 14px 18px}
   color:var(--tinta);font:inherit;font-size:.9rem}
 .caixa button{padding:0 16px;border-radius:10px;border:none;
   background:var(--azul);color:#fff;font:inherit;font-weight:600}
+.caixa .menu-bt{background:var(--cartao2);color:var(--tinta);
+  border:1px solid var(--borda);padding:0 12px;font-weight:600}
+.folha-fundo{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:40}
+.folha{position:fixed;left:0;right:0;bottom:0;z-index:41;max-height:78%;
+  overflow-y:auto;background:var(--topo);border-radius:16px 16px 0 0;
+  padding:14px 16px calc(18px + env(safe-area-inset-bottom, 0px));
+  box-shadow:0 -8px 24px rgba(0,0,0,.3)}
+.folha h3{margin:14px 0 6px;font-size:.72rem;letter-spacing:.08em;
+  text-transform:uppercase;color:var(--suave);font-weight:600}
+.folha h3:first-of-type{margin-top:4px}
+.folha .op{display:flex;gap:10px;align-items:baseline;width:100%;
+  text-align:left;padding:11px 12px;margin:0 0 6px;border-radius:10px;
+  border:1px solid var(--borda);background:var(--cartao);color:var(--tinta);
+  font:inherit;font-size:.92rem;cursor:pointer}
+.folha .op small{color:var(--suave);font-size:.76rem;margin-left:auto;
+  text-align:right}
+.folha .op:focus-visible{outline:2px solid var(--azul-forte)}
+.folha .fechar{width:100%;margin-top:8px;padding:12px;border-radius:10px;
+  border:none;background:var(--cartao2);color:var(--tinta);font:inherit}
 </style>
 </head>
 <body>
@@ -177,6 +196,9 @@ main{flex:1;overflow-y:auto;padding:8px 14px 18px}
   </div>
   <div class="ficha-corpo" id="ficha-corpo"></div>
 </section>
+
+<div class="folha-fundo" id="folha-fundo" hidden></div>
+<section class="folha" id="folha" hidden aria-label="Ações"></section>
 
 <p class="aviso-proto" id="rodape">carregando…</p>
 
@@ -387,6 +409,95 @@ function desenhar() {
   }
 }
 
+// Tudo que o tópico sabe fazer, sem barra. "pede" = o comando precisa
+// de um complemento: ele vai para a caixa de texto e a pessoa completa.
+const ACOES = [
+  ["Atendimento", [
+    ["✅ Encerrar", "/encerrar", "pergunta o motivo"],
+    ["🔀 Transferir", "/transferir ", "escreva o motivo", true],
+    ["🤖 Passar ao Duque", "/duque", ""],
+    ["↩️ Devolver ao robô", "/robo", ""],
+    ["🙈 Ignorar número", "/ignorar", "liga/desliga"],
+    ["✖ Cancelar assistente", "/cancelar", ""],
+  ]],
+  ["Financeiro", [
+    ["🧾 Boleto", "/boleto", "2ª via"],
+    ["💠 PIX", "/pix", "QR e copia e cola"],
+    ["📄 Nota fiscal", "/nf", "lista as faturas"],
+    ["📊 Extrato", "/financeiro", ""],
+    ["🤝 Negociado", "/negociado ", "até quando", true],
+    ["💸 Disse que pagou", "/pago", "segura a cobrança"],
+  ]],
+  ["Técnico", [
+    ["📡 Diagnóstico de rede", "/rede", ""],
+    ["🛠️ Abrir OS", "/os", "reparo"],
+    ["📍 Viabilidade", "/consultar_viabilidade ", "endereço", true],
+    ["📝 Cadastro guiado", "/cadastrar_guiado", "pergunta a pergunta"],
+    ["📋 Cadastro colado", "/cadastrar ", "cole a ficha", true],
+  ]],
+];
+
+const folha = $("folha"), folhaFundo = $("folha-fundo");
+function fecharMenu() { folha.hidden = true; folhaFundo.hidden = true; }
+folhaFundo.addEventListener("click", fecharMenu);
+
+function opcao(rotulo, dica, fazer) {
+  const b = document.createElement("button");
+  b.type = "button";
+  b.className = "op";
+  b.append(document.createTextNode(rotulo));
+  if (dica) {
+    const s = document.createElement("small");
+    s.textContent = dica;
+    b.appendChild(s);
+  }
+  b.addEventListener("click", () => { fecharMenu(); fazer(); });
+  return b;
+}
+
+function abrirMenu(d) {
+  folha.innerHTML = "";
+  const grupos = ACOES.slice();
+  const atalhos = CONVERSA && CONVERSA.k === d.chave ? CONVERSA.a || [] : [];
+  for (const [titulo, itens] of grupos) {
+    const h = document.createElement("h3");
+    h.textContent = titulo;
+    folha.appendChild(h);
+    for (const [rot, cmd, dica, pede] of itens) {
+      folha.appendChild(opcao(rot, dica, () => {
+        if (pede) { ta.value = cmd; ta.focus(); }
+        else pedir(d, cmd);
+      }));
+    }
+  }
+  if (atalhos.length) {
+    const h = document.createElement("h3");
+    h.textContent = "Mensagens prontas";
+    folha.appendChild(h);
+    for (const [nome, resumo] of atalhos) {
+      // O atalho mostra a prévia antes: nada sai sem o "Enviar ao cliente".
+      folha.appendChild(opcao("💬 " + nome, resumo, () => pedir(d, "/" + nome)));
+    }
+  }
+  if (d.hist) {
+    const h = document.createElement("h3");
+    h.textContent = "Outros";
+    folha.appendChild(h);
+    folha.appendChild(opcao("📜 Histórico completo", "abre o tópico", () => {
+      if (tg && tg.openTelegramLink) tg.openTelegramLink(d.hist);
+      else window.open(d.hist, "_blank");
+    }));
+  }
+  const fechar = document.createElement("button");
+  fechar.type = "button";
+  fechar.className = "fechar";
+  fechar.textContent = "Fechar";
+  fechar.addEventListener("click", fecharMenu);
+  folha.appendChild(fechar);
+  folhaFundo.hidden = false;
+  folha.hidden = false;
+}
+
 function abrirFicha(d) {
   aberto = d.chave;
   CONVERSA = null;
@@ -462,6 +573,19 @@ function desenharFicha(rolarFim) {
     const txt = textoDe(html);
     b.appendChild(document.createTextNode(txt));
     fio.appendChild(b);
+    if (ult && ts === ult[0] && /toque enviar/i.test(txt)) {
+      const opcoes = document.createElement("div");
+      opcoes.className = "acoes";
+      for (const [rot, cmd] of [["✅ Enviar ao cliente", "ENVIAR"],
+                                ["✖ Cancelar", "CANCELAR"]]) {
+        const bt = document.createElement("button");
+        bt.type = "button";
+        bt.textContent = rot;
+        bt.addEventListener("click", () => pedir(d, cmd));
+        opcoes.appendChild(bt);
+      }
+      fio.appendChild(opcoes);
+    }
     if (ult && ts === ult[0] && /qual o motivo|responda com o n/i.test(txt)) {
       const opcoes = document.createElement("div");
       opcoes.className = "acoes";
@@ -499,32 +623,21 @@ function desenharFicha(rolarFim) {
     ta.value = "";
     pedir(d, t);
   });
-  caixa.append(ta, enviar);
+  const menuBt = document.createElement("button");
+  menuBt.type = "button";
+  menuBt.className = "menu-bt";
+  menuBt.textContent = "⚡ Ações";
+  menuBt.setAttribute("aria-haspopup", "dialog");
+  menuBt.addEventListener("click", () => abrirMenu(d));
+  caixa.append(menuBt, ta, enviar);
   corpo.appendChild(caixa);
 
-  const acoes = document.createElement("div");
-  acoes.className = "acoes";
-  const MENU = [["✅ Encerrar", "/encerrar"], ["🤖 Passar ao Duque", "/duque"],
-                ["🧾 Boleto", "/boleto"], ["💠 PIX", "/pix"]];
-  for (const [txt, cmd] of MENU) {
-    const b = document.createElement("button");
-    b.type = "button";
-    b.textContent = txt;
-    b.addEventListener("click", () => pedir(d, cmd));
-    acoes.appendChild(b);
-  }
-  if (d.hist) {
-    const h = document.createElement("a");
-    h.href = d.hist;
-    h.textContent = "📜 Histórico";
-    acoes.appendChild(h);
-  }
-  corpo.appendChild(acoes);
   ficha.hidden = false;
   if (noFim) corpo.scrollTop = corpo.scrollHeight;
 }
 
 $("voltar").addEventListener("click", () => {
+  fecharMenu();
   ficha.hidden = true;
   aberto = null;
   OLHANDO = null;
