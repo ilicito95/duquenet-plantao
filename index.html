@@ -188,7 +188,7 @@ main{flex:1;overflow-y:auto;padding:8px 14px 18px}
 // vêm no endereço, que só existe no botão do dono.
 const P = new URLSearchParams(location.search);
 const CFG = {t: P.get("t"), k: P.get("k"), a: P.get("a"), b: P.get("b"),
-             m: P.get("m")};
+             c: P.get("c"), m: P.get("m")};
 const AO_VIVO = !!(CFG.t && CFG.k && CFG.a && CFG.b && CFG.m);
 const API = "https://api.telegram.org/bot" + CFG.t + "/";
 const tg = window.Telegram && window.Telegram.WebApp;
@@ -239,6 +239,7 @@ async function api(metodo, dados) {
 
 // ------------------------------------------------------------ estado
 let ESTADO = null, ULTIMO_ARQ = "", FALHAS = 0;
+let CONVERSA = null, ULTIMA_CONV = "";   // a conversa da ficha aberta
 let DADOS = [];
 let filaAtual = "esperando";
 let aberto = null;                       // chave da conversa na ficha
@@ -254,29 +255,44 @@ function aplicar(estado) {
     desde: new Date(String(l.t || "").replace(" ", "T")),
     canal: l.c, sigla: l.c === "wa" ? "WPP" : "OPA",
     chave: l.k || "", proto: l.o || "",
-    falas: Array.isArray(l.m) ? l.m : [],
-    avisos: Array.isArray(l.v) ? l.v : [],
+    ultima: l.u || "", quem: l.q,
     hist: l.h && estado.ch
       ? "https://t.me/c/" + String(estado.ch).replace(/^-100/, "") + "/" + l.h
       : "",
   }));
 }
 
+async function lerFixado(chat) {
+  const r = await api("getChat", {chat_id: chat});
+  const m = r.ok && r.result.pinned_message;
+  if (!m || !m.text) return null;
+  return {marca: m.message_id + ":" + (m.edit_date || m.date), texto: m.text};
+}
+async function abrirTexto(texto) {
+  return JSON.parse(await gunzip(await decifrar(deB64u(texto.trim()))));
+}
+
+// Texto fixado, e não arquivo: o Telegram não libera o download de
+// arquivo para página (sem CORS no /file/, medido 23/09 — era o
+// "failed to fetch"). Lista num canal, conversa aberta noutro.
 async function buscar() {
-  const r = await api("getChat", {chat_id: CFG.a});
-  const doc = r.ok && r.result.pinned_message
-    && r.result.pinned_message.document;
-  if (!doc) throw new Error("sem plantão fixado");
-  if (doc.file_unique_id === ULTIMO_ARQ && !PENDENTES.length) return false;
-  const f = await api("getFile", {file_id: doc.file_id});
-  if (!f.ok) throw new Error("getFile");
-  const bin = new Uint8Array(await (await fetch(
-    "https://api.telegram.org/file/bot" + CFG.t + "/" + f.result.file_path))
-    .arrayBuffer());
-  const estado = JSON.parse(await gunzip(await decifrar(bin)));
-  ULTIMO_ARQ = doc.file_unique_id;
-  aplicar(estado);
-  return true;
+  let mudou = false;
+  const lista = await lerFixado(CFG.a);
+  if (!lista) throw new Error("sem plantão fixado");
+  if (lista.marca !== ULTIMO_ARQ) {
+    aplicar(await abrirTexto(lista.texto));
+    ULTIMO_ARQ = lista.marca;
+    mudou = true;
+  }
+  if (aberto && CFG.c) {
+    const conv = await lerFixado(CFG.c);
+    if (conv && conv.marca !== ULTIMA_CONV) {
+      const c = await abrirTexto(conv.texto);
+      ULTIMA_CONV = conv.marca;
+      if (c.k === aberto) { CONVERSA = c; mudou = true; }
+    }
+  }
+  return mudou;
 }
 
 // Ações: o texto fixado no canal SOBE carrega TODAS as pendentes; a VM
@@ -284,11 +300,12 @@ async function buscar() {
 // voltar em 6 s, reescreve (com contador, senão o Telegram diz "não
 // modificado").
 let ENVIO = 0, ULTIMO_ENVIO = 0;
+let OLHANDO = null;
 async function empurrar() {
-  if (!PENDENTES.length) return;
   ENVIO += 1;
   ULTIMO_ENVIO = Date.now();
-  const texto = await cifrar(JSON.stringify({n: ENVIO, acoes: PENDENTES}));
+  const texto = await cifrar(JSON.stringify({n: ENVIO, acoes: PENDENTES,
+                                             olhando: OLHANDO}));
   const r = await api("editMessageText",
                       {chat_id: CFG.b, message_id: CFG.m, text: texto});
   if (!r.ok && !/not modified/i.test(r.description || "")) {
@@ -354,7 +371,6 @@ function desenhar() {
     return;
   }
   for (const d of itens) {
-    const ult = d.falas[d.falas.length - 1];
     const b = document.createElement("button");
     b.className = "linha " + grau(d.desde);
     b.type = "button";
@@ -364,11 +380,20 @@ function desenhar() {
     b.querySelector(".ini").textContent = iniciais(d.nome);
     b.querySelector(".nome").textContent = d.nome;
     b.querySelector(".fala").textContent =
-      d.sigla + " · " + (ult ? ult[1] : "—");
+      d.sigla + " · " + (d.ultima || "—");
     b.querySelector(".t").textContent = fmt(d.desde);
-    b.addEventListener("click", () => { aberto = d.chave; desenharFicha(true); });
+    b.addEventListener("click", () => abrirFicha(d));
     lista.appendChild(b);
   }
+}
+
+function abrirFicha(d) {
+  aberto = d.chave;
+  CONVERSA = null;
+  ULTIMA_CONV = "";
+  OLHANDO = {c: d.canal, k: d.chave};
+  empurrar();
+  desenharFicha(true);
 }
 
 // A ficha é redesenhada a cada plantão novo SEM perder o que está sendo
@@ -407,7 +432,16 @@ function desenharFicha(rolarFim) {
 
   const fio = document.createElement("div");
   fio.className = "fio";
-  for (const [quem, texto, ts] of d.falas) {
+  const conv = CONVERSA && CONVERSA.k === d.chave ? CONVERSA : null;
+  const falas = conv ? conv.m || [] : [];
+  const avisosConv = conv ? conv.v || [] : [];
+  if (!conv) {
+    const b = document.createElement("p");
+    b.className = "vazio";
+    b.textContent = "carregando a conversa…";
+    fio.appendChild(b);
+  }
+  for (const [quem, texto, ts] of falas) {
     const b = document.createElement("div");
     b.className = "fala-" + (quem === 0 ? "cli" : quem === 2 ? "robo" : "eq");
     const s = document.createElement("small");
@@ -418,8 +452,8 @@ function desenharFicha(rolarFim) {
   }
   // O que o tópico respondeu (pergunta do motivo, confirmação, erro).
   // Linha "3 - Motivo" vira botão: é o menu, sem digitar número.
-  const ult = d.avisos[d.avisos.length - 1];
-  for (const [ts, html] of d.avisos) {
+  const ult = avisosConv[avisosConv.length - 1];
+  for (const [ts, html] of avisosConv) {
     const b = document.createElement("div");
     b.className = "fala-robo";
     const s = document.createElement("small");
@@ -490,7 +524,11 @@ function desenharFicha(rolarFim) {
   if (noFim) corpo.scrollTop = corpo.scrollHeight;
 }
 
-$("voltar").addEventListener("click", () => { ficha.hidden = true; aberto = null; });
+$("voltar").addEventListener("click", () => {
+  ficha.hidden = true;
+  aberto = null;
+  OLHANDO = null;
+});
 for (const aba of document.querySelectorAll(".num")) {
   aba.addEventListener("click", () => {
     for (const o of document.querySelectorAll(".num")) {
@@ -501,7 +539,9 @@ for (const aba of document.querySelectorAll(".num")) {
   });
 }
 busca.addEventListener("input", desenhar);
-$("atualizar").addEventListener("click", () => { ULTIMO_ARQ = ""; ciclo(); });
+$("atualizar").addEventListener("click", () => {
+  ULTIMO_ARQ = ""; ULTIMA_CONV = ""; ciclo();
+});
 
 // Histórico abre o tópico sem fechar o app (openTelegramLink não fecha
 // desde o Bot API 7.0 — core.telegram.org/bots/webapps).
@@ -529,7 +569,10 @@ async function ciclo() {
   try {
     const mudou = await buscar();
     FALHAS = 0;
-    if (PENDENTES.length && Date.now() - ULTIMO_ENVIO > 6000) empurrar();
+    // Sem confirmação em 6 s (ação pendente, ou a conversa aberta que não
+    // chegou), escreve de novo.
+    if ((PENDENTES.length || (aberto && !CONVERSA))
+        && Date.now() - ULTIMO_ENVIO > 6000) empurrar();
     if (mudou) {
       contar();
       desenhar();
