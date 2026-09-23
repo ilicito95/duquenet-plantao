@@ -158,6 +158,10 @@ main{flex:1;overflow-y:auto;padding:8px 14px 18px}
 .folha .op:focus-visible{outline:2px solid var(--azul-forte)}
 .folha .fechar{width:100%;margin-top:8px;padding:12px;border-radius:10px;
   border:none;background:var(--cartao2);color:var(--tinta);font:inherit}
+.fio .hora-fala{display:block;text-align:right;font-size:.68rem;
+  opacity:.65;margin-top:3px;font-variant-numeric:tabular-nums}
+.fio small{display:block;font-size:.7rem;color:var(--suave);margin-bottom:2px}
+.fala-eq small{color:rgba(255,255,255,.8)}
 </style>
 </head>
 <body>
@@ -579,10 +583,18 @@ function desenharFicha(rolarFim) {
   for (const [quem, texto, ts] of falas) {
     const b = document.createElement("div");
     b.className = "fala-" + (quem === 0 ? "cli" : quem === 2 ? "robo" : "eq");
-    const s = document.createElement("small");
-    s.textContent = (quem === 2 ? "🤖 Duque · " : "") + String(ts || "").slice(11, 16);
-    b.appendChild(s);
+    if (quem === 2) {
+      const s = document.createElement("small");
+      s.textContent = "🤖 Duque";
+      b.appendChild(s);
+    }
     b.appendChild(document.createTextNode(texto));
+    // A hora embaixo, pequena, à direita — colada no começo do texto ela
+    // se lia como parte da mensagem (dono, 23/09).
+    const h = document.createElement("span");
+    h.className = "hora-fala";
+    h.textContent = String(ts || "").slice(11, 16);
+    b.appendChild(h);
     fio.appendChild(b);
   }
   // O que o tópico respondeu (pergunta do motivo, confirmação, erro).
