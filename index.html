@@ -270,7 +270,13 @@ let PENDENTES = [];                      // ações ainda sem confirmação
 function aplicar(estado) {
   ESTADO = estado;
   const feitos = new Set(estado.feitos || []);
-  PENDENTES = PENDENTES.filter((p) => !feitos.has(p.id));
+  // Feito não some de imediato: o texto fica como "enviado ✓" até a
+  // conversa oficial trazê-lo (dono, 23/09: chegou no WhatsApp antes de
+  // aparecer no app). Comando some ao ser feito — a resposta dele vem.
+  for (const p of PENDENTES) {
+    if (feitos.has(p.id) && !p.feito) p.feito = Date.now();
+  }
+  PENDENTES = PENDENTES.filter((p) => !(p.feito && p.t.startsWith("/")));
   DADOS = (estado.linhas || []).map((l) => ({
     nome: l.n || "?",
     fila: FILAS[l.f] || "esperando",
@@ -311,7 +317,15 @@ async function buscar() {
     if (conv && conv.marca !== ULTIMA_CONV) {
       const c = await abrirTexto(conv.texto);
       ULTIMA_CONV = conv.marca;
-      if (c.k === aberto) { CONVERSA = c; mudou = true; }
+      if (c.k === aberto) {
+        CONVERSA = c;
+        mudou = true;
+        const minhas = new Set((c.m || []).filter((m) => m[0] === 1)
+                                          .map((m) => m[1]));
+        PENDENTES = PENDENTES.filter((p) => !(p.feito
+          && (minhas.has(p.t.replace(/\s+/g, " ").trim())
+              || Date.now() - p.feito > 30000)));
+      }
     }
   }
   return mudou;
@@ -326,8 +340,9 @@ let OLHANDO = null;
 async function empurrar() {
   ENVIO += 1;
   ULTIMO_ENVIO = Date.now();
-  const texto = await cifrar(JSON.stringify({n: ENVIO, acoes: PENDENTES,
-                                             olhando: OLHANDO}));
+  const acoes = PENDENTES.filter((p) => !p.feito)
+    .map(({id, c, k, t, i}) => ({id, c, k, t, i}));
+  const texto = await cifrar(JSON.stringify({n: ENVIO, acoes, olhando: OLHANDO}));
   const r = await api("editMessageText",
                       {chat_id: CFG.b, message_id: CFG.m, text: texto});
   if (!r.ok && !/not modified/i.test(r.description || "")) {
@@ -611,9 +626,9 @@ function desenharFicha(rolarFim) {
   for (const p of PENDENTES.filter((p) => p.k === d.chave)) {
     const b = document.createElement("div");
     b.className = "fala-eq";
-    b.style.opacity = ".55";
+    b.style.opacity = p.feito ? ".85" : ".55";
     const s = document.createElement("small");
-    s.textContent = "enviando…";
+    s.textContent = p.feito ? "enviado ✓" : "enviando…";
     b.appendChild(s);
     b.appendChild(document.createTextNode(p.t));
     fio.appendChild(b);
@@ -693,7 +708,7 @@ async function ciclo() {
     FALHAS = 0;
     // Sem confirmação em 6 s (ação pendente, ou a conversa aberta que não
     // chegou), escreve de novo.
-    if ((PENDENTES.length || (aberto && !CONVERSA))
+    if ((PENDENTES.some((p) => !p.feito) || (aberto && !CONVERSA))
         && Date.now() - ULTIMO_ENVIO > 6000) empurrar();
     if (mudou) {
       contar();
@@ -718,7 +733,7 @@ if (AO_VIVO && SEM_ASSINATURA) {
 if (AO_VIVO) {
   status("carregando…");
   ciclo();
-  setInterval(ciclo, 2000);
+  setInterval(ciclo, 1500);
   setInterval(() => { contar(); }, 30000);     // relógio dos "há X min"
 } else {
   $("tarja").hidden = false;
