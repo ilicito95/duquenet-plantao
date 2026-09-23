@@ -335,8 +335,17 @@ async function empurrar() {
   }
 }
 
+// Aberto pelo botão do TECLADO o Telegram não diz quem abriu (initData
+// vazio) e a VM recusa toda ação — 23/09. Pelo botão de menu, diz.
+const SEM_ASSINATURA = !(tg && tg.initData);
+
 function pedir(d, texto) {
   if (!AO_VIVO) { alert("Exemplo: nada é enviado."); return; }
+  if (SEM_ASSINATURA) {
+    alert("Este app foi aberto por um botão que não identifica você. "
+      + "Feche e abra pelo botão Plantão ao lado do campo de digitar.");
+    return;
+  }
   const id = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
   PENDENTES.push({id, c: d.canal, k: d.chave, t: texto,
                   i: (tg && tg.initData) || ""});
@@ -701,6 +710,11 @@ async function ciclo() {
   }
 }
 
+if (AO_VIVO && SEM_ASSINATURA) {
+  $("tarja").hidden = false;
+  $("tarja").textContent = "Aberto por botão antigo: dá para ver, mas não "
+    + "para agir. Feche e abra pelo botão Plantão ao lado do campo de digitar.";
+}
 if (AO_VIVO) {
   status("carregando…");
   ciclo();
