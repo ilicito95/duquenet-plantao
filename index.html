@@ -151,8 +151,8 @@ main{flex:1;overflow-y:auto;padding:8px 14px 18px}
 </header>
 
 <p class="tarja-demo" id="tarja" hidden>
-  <b>Exemplo.</b> Estes nomes são inventados — não é o plantão de agora.
-  Abra pelo botão <b>Plantão</b> da conversa com o bot.
+  Este endereço não traz o plantão. Abra pelo botão <b>Plantão</b>
+  da conversa com o bot.
 </p>
 
 <div class="numeros" role="tablist">
@@ -181,107 +181,164 @@ main{flex:1;overflow-y:auto;padding:8px 14px 18px}
 <p class="aviso-proto" id="rodape">carregando…</p>
 
 <script>
-const AGORA = new Date();
-const min = (m) => new Date(AGORA.getTime() - m * 60000);
+// Plantão ao vivo (23/09). O app não fala com a rede da DuqueNet — nada
+// fala. A VM deixa o plantão cifrado num canal privado (DESCE) e lê as
+// ações num outro (SOBE); este app faz o mesmo do outro lado. Todo
+// mundo só chama api.telegram.org. Senha do bot de entrega e chave AES
+// vêm no endereço, que só existe no botão do dono.
+const P = new URLSearchParams(location.search);
+const CFG = {t: P.get("t"), k: P.get("k"), a: P.get("a"), b: P.get("b"),
+             m: P.get("m")};
+const AO_VIVO = !!(CFG.t && CFG.k && CFG.a && CFG.b && CFG.m);
+const API = "https://api.telegram.org/bot" + CFG.t + "/";
+const tg = window.Telegram && window.Telegram.WebApp;
 const FILAS = {e: "esperando", a: "atendimento", r: "robo"};
+const agora = () => new Date();
 
-// O estado chega DENTRO do link que a ponte monta (#d=<gzip+base64>),
-// nunca de um servidor: a rede da DuqueNet não recebe conexão nenhuma.
-// Sem dados no link, o app mostra o exemplo — e isso também prova que a
-// página sozinha não guarda nada de cliente.
-async function lerDadosDaURL() {
-  try {
-    // ?d= primeiro: o Telegram troca o # pelos dados de lançamento dele
-    // ao abrir o app. O # fica só como reserva para link antigo.
-    const cru = new URLSearchParams(location.search).get("d")
-      || (location.hash || "").replace(/^#d=/, "");
-    if (!cru) return null;
-    const b64 = cru.replace(/-/g, "+").replace(/_/g, "/");
-    const bin = atob(b64 + "=".repeat((4 - b64.length % 4) % 4));
-    const bytes = Uint8Array.from(bin, (c) => c.charCodeAt(0));
-    const fluxo = new Blob([bytes]).stream()
-      .pipeThrough(new DecompressionStream("gzip"));
-    const pacote = JSON.parse(await new Response(fluxo).text());
-    return Array.isArray(pacote.linhas) ? pacote : null;
-  } catch (e) {
-    return null;
-  }
+// ------------------------------------------------------------ cifra
+const b64u = (bytes) => btoa(String.fromCharCode(...bytes))
+  .replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+const deB64u = (s) => {
+  const b = s.replace(/-/g, "+").replace(/_/g, "/");
+  return Uint8Array.from(atob(b + "=".repeat((4 - b.length % 4) % 4)),
+                         (c) => c.charCodeAt(0));
+};
+let CHAVE = null;
+async function chave() {
+  if (!CHAVE) CHAVE = await crypto.subtle.importKey(
+    "raw", deB64u(CFG.k), "AES-GCM", false, ["encrypt", "decrypt"]);
+  return CHAVE;
+}
+async function decifrar(bytes) {
+  const claro = await crypto.subtle.decrypt(
+    {name: "AES-GCM", iv: bytes.slice(0, 12)}, await chave(), bytes.slice(12));
+  return new Uint8Array(claro);
+}
+async function cifrar(texto) {
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const c = new Uint8Array(await crypto.subtle.encrypt(
+    {name: "AES-GCM", iv}, await chave(), new TextEncoder().encode(texto)));
+  const tudo = new Uint8Array(12 + c.length);
+  tudo.set(iv); tudo.set(c, 12);
+  return b64u(tudo);
+}
+async function gunzip(bytes) {
+  const fluxo = new Blob([bytes]).stream()
+    .pipeThrough(new DecompressionStream("gzip"));
+  return new Response(fluxo).text();
 }
 
-const linkTopico = (chat, thread) => {
-  if (!chat || !thread) return "";
-  return "https://t.me/c/" + String(chat).replace(/^-100/, "") + "/" + thread;
-};
+// ------------------------------------------------------------ Telegram
+async function api(metodo, dados) {
+  // form-urlencoded: pedido "simples", sem preflight (o Telegram não
+  // responde OPTIONS, medido em 23/09).
+  const r = await fetch(API + metodo, {method: "POST",
+    body: new URLSearchParams(dados)});
+  return r.json();
+}
 
-const EXEMPLO = [
-  {nome:"Maria das Graças Ayres", fila:"esperando", desde:min(589), canal:"OPA",
-   fone:"21998877000", proto:"OPA2026103566",
-   fala:"Boa tarde, consegui pagar hoje. Já liberou?"},
-  {nome:"João Batista Pereira", fila:"esperando", desde:min(22), canal:"WPP",
-   fone:"21995849442", proto:"—", fala:"Tem 350 mega? Por que a taxa é 130?"},
-  {nome:"Rita Santos", fila:"esperando", desde:min(4), canal:"OPA",
-   fone:"21994020961", proto:"OPA2026103571", fala:"Quero a segunda via"},
-  {nome:"Ana Cristina Mendes", fila:"atendimento", desde:min(6), canal:"OPA",
-   fone:"21996655120", proto:"OPA2026103544", fala:"Perfeito, obrigada!"},
-  {nome:"Carlos Farly Santos", fila:"atendimento", desde:min(41), canal:"OPA",
-   fone:"21996265886", proto:"OPA2026103388", fala:"Continuo sem internet"},
-  {nome:"Sônia Maria dos Santos", fila:"robo", desde:min(2), canal:"OPA",
-   fone:"21998669232", proto:"OPA2026103590", fala:"Oi"},
-];
-
-let PACOTE = null;
-let DEMO = true;
-let DADOS = EXEMPLO;
+// ------------------------------------------------------------ estado
+let ESTADO = null, ULTIMO_ARQ = "", FALHAS = 0;
+let DADOS = [];
 let filaAtual = "esperando";
+let aberto = null;                       // chave da conversa na ficha
+let PENDENTES = [];                      // ações ainda sem confirmação
 
-function aplicarPacote(pacote) {
-  PACOTE = pacote;
-  DEMO = !pacote;
-  DADOS = DEMO ? EXEMPLO : pacote.linhas.map((l) => ({
+function aplicar(estado) {
+  ESTADO = estado;
+  const feitos = new Set(estado.feitos || []);
+  PENDENTES = PENDENTES.filter((p) => !feitos.has(p.id));
+  DADOS = (estado.linhas || []).map((l) => ({
     nome: l.n || "?",
     fila: FILAS[l.f] || "esperando",
-    desde: new Date((l.t || 0) * 1000),
-    canal: l.c || "",
-    fone: l.p || "",
-    proto: l.o || "—",
-    fala: l.u || "",
-    chave: l.k || "",
+    desde: new Date(String(l.t || "").replace(" ", "T")),
+    canal: l.c, sigla: l.c === "wa" ? "WPP" : "OPA",
+    chave: l.k || "", proto: l.o || "",
     falas: Array.isArray(l.m) ? l.m : [],
-    link: linkTopico(pacote.cg, l.g),
-    hist: linkTopico(pacote.ch, l.h),
+    avisos: Array.isArray(l.v) ? l.v : [],
+    hist: l.h && estado.ch
+      ? "https://t.me/c/" + String(estado.ch).replace(/^-100/, "") + "/" + l.h
+      : "",
   }));
 }
 
+async function buscar() {
+  const r = await api("getChat", {chat_id: CFG.a});
+  const doc = r.ok && r.result.pinned_message
+    && r.result.pinned_message.document;
+  if (!doc) throw new Error("sem plantão fixado");
+  if (doc.file_unique_id === ULTIMO_ARQ && !PENDENTES.length) return false;
+  const f = await api("getFile", {file_id: doc.file_id});
+  if (!f.ok) throw new Error("getFile");
+  const bin = new Uint8Array(await (await fetch(
+    "https://api.telegram.org/file/bot" + CFG.t + "/" + f.result.file_path))
+    .arrayBuffer());
+  const estado = JSON.parse(await gunzip(await decifrar(bin)));
+  ULTIMO_ARQ = doc.file_unique_id;
+  aplicar(estado);
+  return true;
+}
+
+// Ações: o texto fixado no canal SOBE carrega TODAS as pendentes; a VM
+// executa cada id uma vez e devolve os ids feitos no plantão. Se nada
+// voltar em 6 s, reescreve (com contador, senão o Telegram diz "não
+// modificado").
+let ENVIO = 0, ULTIMO_ENVIO = 0;
+async function empurrar() {
+  if (!PENDENTES.length) return;
+  ENVIO += 1;
+  ULTIMO_ENVIO = Date.now();
+  const texto = await cifrar(JSON.stringify({n: ENVIO, acoes: PENDENTES}));
+  const r = await api("editMessageText",
+                      {chat_id: CFG.b, message_id: CFG.m, text: texto});
+  if (!r.ok && !/not modified/i.test(r.description || "")) {
+    status("Não consegui enviar: " + (r.description || "erro"), true);
+  }
+}
+
+function pedir(d, texto) {
+  if (!AO_VIVO) { alert("Exemplo: nada é enviado."); return; }
+  const id = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+  PENDENTES.push({id, c: d.canal, k: d.chave, t: texto,
+                  i: (tg && tg.initData) || ""});
+  empurrar();
+  if (aberto === d.chave) desenharFicha();
+}
+
+// ------------------------------------------------------------ tela
+const $ = (id) => document.getElementById(id);
+const lista = $("lista"), busca = $("busca");
+const ficha = $("ficha"), corpo = $("ficha-corpo");
+
 const fmt = (d) => {
-  const m = Math.max(0, Math.round((AGORA - d) / 60000));
+  const m = Math.max(0, Math.round((agora() - d) / 60000));
+  if (!isFinite(m)) return "—";
   if (m < 60) return m + "min";
   const h = Math.floor(m / 60), r = m % 60;
   if (h < 24) return h + "h" + String(r).padStart(2, "0");
   return Math.floor(h / 24) + "d" + String(h % 24).padStart(2, "0") + "h";
 };
 const grau = (d) => {
-  const m = (AGORA - d) / 60000;
+  const m = (agora() - d) / 60000;
   return m >= 60 ? "u" : m >= 15 ? "a" : "n";
 };
 const iniciais = (n) => n.split(" ").filter(Boolean).slice(0, 2)
   .map((p) => p[0]).join("").toUpperCase();
-const fone = (f) => {
-  const s = String(f).replace(/\D/g, "").slice(-11);
-  return s.length >= 10
-    ? "(" + s.slice(0, 2) + ") " + s.slice(2, -4) + "-" + s.slice(-4)
-    : f;
-};
+const textoDe = (html) =>
+  new DOMParser().parseFromString(html, "text/html").body.textContent || "";
 
-const lista = document.getElementById("lista");
-const busca = document.getElementById("busca");
+function status(msg, erro) {
+  const el = $("rodape");
+  el.textContent = msg;
+  el.style.color = erro ? "var(--urgente)" : "";
+}
 
 function contar() {
   for (const f of ["esperando", "atendimento", "robo"]) {
-    document.getElementById("n-" + f).textContent =
-      DADOS.filter((d) => d.fila === f).length;
+    $("n-" + f).textContent = DADOS.filter((d) => d.fila === f).length;
   }
-  document.getElementById("hora").textContent =
-    (PACOTE ? new Date(PACOTE.em * 1000) : AGORA).toTimeString().slice(0, 5);
+  $("hora").textContent = ESTADO && ESTADO.em
+    ? new Date(ESTADO.em * 1000).toTimeString().slice(0, 5) : "--:--";
 }
 
 function desenhar() {
@@ -289,7 +346,7 @@ function desenhar() {
   const itens = DADOS
     .filter((d) => d.fila === filaAtual)
     .filter((d) => !termo || d.nome.toLowerCase().includes(termo)
-                          || String(d.fone).includes(termo.replace(/\D/g, "")))
+                          || d.chave.includes(termo.replace(/\D/g, "") || "#"))
     .sort((a, b) => a.desde - b.desde);
   lista.innerHTML = "";
   if (!itens.length) {
@@ -297,6 +354,7 @@ function desenhar() {
     return;
   }
   for (const d of itens) {
+    const ult = d.falas[d.falas.length - 1];
     const b = document.createElement("button");
     b.className = "linha " + grau(d.desde);
     b.type = "button";
@@ -305,29 +363,40 @@ function desenhar() {
       + '<span class="t"></span>';
     b.querySelector(".ini").textContent = iniciais(d.nome);
     b.querySelector(".nome").textContent = d.nome;
-    b.querySelector(".fala").textContent = d.canal + " · " + (d.fala || "—");
+    b.querySelector(".fala").textContent =
+      d.sigla + " · " + (ult ? ult[1] : "—");
     b.querySelector(".t").textContent = fmt(d.desde);
-    b.addEventListener("click", () => abrir(d));
+    b.addEventListener("click", () => { aberto = d.chave; desenharFicha(true); });
     lista.appendChild(b);
   }
 }
 
-const ficha = document.getElementById("ficha");
-const corpo = document.getElementById("ficha-corpo");
+// A ficha é redesenhada a cada plantão novo SEM perder o que está sendo
+// digitado: a caixa de resposta é criada uma vez e só muda de lugar.
+const ta = document.createElement("textarea");
+ta.id = "resposta";
+ta.rows = 2;
 
-function abrir(d) {
-  const g = grau(d.desde);
-  const rotulo = {esperando: "Aguardando", atendimento: "Em atendimento",
-                  robo: "Com o robô"}[d.fila];
+function desenharFicha(rolarFim) {
+  const d = DADOS.find((x) => x.chave === aberto);
+  if (!d) {
+    if (aberto) { corpo.innerHTML = '<p class="vazio">Esta conversa saiu do '
+      + 'atendimento ativo.</p>'; }
+    return;
+  }
+  const noFim = rolarFim
+    || corpo.scrollHeight - corpo.scrollTop - corpo.clientHeight < 80;
   corpo.innerHTML = "";
 
   const h2 = document.createElement("h2");
   h2.textContent = d.nome;
   corpo.appendChild(h2);
-
   const chips = document.createElement("div");
-  for (const [cls, txt] of [[g, fmt(d.desde) + " sem resposta"],
-                            ["f", rotulo], ["f", d.canal]]) {
+  const rotulo = {esperando: "Aguardando", atendimento: "Em atendimento",
+                  robo: "Com o robô"}[d.fila];
+  for (const [cls, txt] of [[grau(d.desde), fmt(d.desde) + " sem resposta"],
+                            ["f", rotulo], ["f", d.sigla],
+                            ["f", d.proto]]) {
     if (!txt) continue;
     const c = document.createElement("span");
     c.className = "chip " + cls;
@@ -336,68 +405,69 @@ function abrir(d) {
   }
   corpo.appendChild(chips);
 
-  const falas = d.falas || [];
-  if (falas.length) {
-    // O gêmeo dentro do app: as últimas falas, cliente à esquerda,
-    // equipe e robô à direita — como qualquer conversa.
-    const fio = document.createElement("div");
-    fio.className = "fio";
-    for (const [quem, texto] of falas) {
-      const b = document.createElement("div");
-      b.className = "fala-" + (quem === 0 ? "cli" : quem === 2 ? "robo" : "eq");
-      if (quem === 2) {
-        const s = document.createElement("small");
-        s.textContent = "🤖 Duque";
-        b.appendChild(s);
-      }
-      b.appendChild(document.createTextNode(texto));
-      fio.appendChild(b);
-    }
-    corpo.appendChild(fio);
-  } else if (d.fala) {
-    const balao = document.createElement("div");
-    balao.className = "balao-cli";
+  const fio = document.createElement("div");
+  fio.className = "fio";
+  for (const [quem, texto, ts] of d.falas) {
+    const b = document.createElement("div");
+    b.className = "fala-" + (quem === 0 ? "cli" : quem === 2 ? "robo" : "eq");
     const s = document.createElement("small");
-    s.textContent = "última mensagem do cliente";
-    balao.appendChild(s);
-    balao.appendChild(document.createTextNode(d.fala));
-    corpo.appendChild(balao);
+    s.textContent = (quem === 2 ? "🤖 Duque · " : "") + String(ts || "").slice(11, 16);
+    b.appendChild(s);
+    b.appendChild(document.createTextNode(texto));
+    fio.appendChild(b);
   }
-
-  const dados = document.createElement("div");
-  dados.className = "dados";
-  for (const [rot, val] of [["Telefone", d.fone ? fone(d.fone) : ""],
-                            ["Protocolo", d.proto]]) {
-    if (!val || val === "—") continue;
-    const linha = document.createElement("div");
-    const a = document.createElement("span");
-    a.textContent = rot;
-    const b = document.createElement("span");
-    b.textContent = val;
-    linha.append(a, b);
-    dados.appendChild(linha);
+  // O que o tópico respondeu (pergunta do motivo, confirmação, erro).
+  // Linha "3 - Motivo" vira botão: é o menu, sem digitar número.
+  const ult = d.avisos[d.avisos.length - 1];
+  for (const [ts, html] of d.avisos) {
+    const b = document.createElement("div");
+    b.className = "fala-robo";
+    const s = document.createElement("small");
+    s.textContent = "📌 sistema · " + new Date(ts * 1000).toTimeString().slice(0, 5);
+    b.appendChild(s);
+    const txt = textoDe(html);
+    b.appendChild(document.createTextNode(txt));
+    fio.appendChild(b);
+    if (ult && ts === ult[0] && /qual o motivo|responda com o n/i.test(txt)) {
+      const opcoes = document.createElement("div");
+      opcoes.className = "acoes";
+      for (const m of txt.matchAll(/(?:^|\n)\s*(\d{1,2})\s*-\s*([^\n]+)/g)) {
+        const bt = document.createElement("button");
+        bt.type = "button";
+        bt.textContent = m[1] + " · " + m[2].trim();
+        bt.addEventListener("click", () => pedir(d, m[1]));
+        opcoes.appendChild(bt);
+      }
+      fio.appendChild(opcoes);
+    }
   }
-  if (dados.children.length) corpo.appendChild(dados);
+  for (const p of PENDENTES.filter((p) => p.k === d.chave)) {
+    const b = document.createElement("div");
+    b.className = "fala-eq";
+    b.style.opacity = ".55";
+    const s = document.createElement("small");
+    s.textContent = "enviando…";
+    b.appendChild(s);
+    b.appendChild(document.createTextNode(p.t));
+    fio.appendChild(b);
+  }
+  corpo.appendChild(fio);
 
-  // Responder: o que se digita aqui vai ao cliente, como no tópico.
   const caixa = document.createElement("div");
   caixa.className = "caixa";
-  const ta = document.createElement("textarea");
-  ta.id = "resposta";
-  ta.rows = 2;
   ta.placeholder = "Responder a " + d.nome.split(" ")[0] + "…";
   const enviar = document.createElement("button");
   enviar.type = "button";
-  enviar.className = "primaria";
   enviar.textContent = "Enviar";
   enviar.addEventListener("click", () => {
     const t = ta.value.trim();
-    if (t) pedir(d, t);
+    if (!t) return;
+    ta.value = "";
+    pedir(d, t);
   });
   caixa.append(ta, enviar);
   corpo.appendChild(caixa);
 
-  // O menu: cada botão é um comando do tópico, sem a barra.
   const acoes = document.createElement("div");
   acoes.className = "acoes";
   const MENU = [["✅ Encerrar", "/encerrar"], ["🤖 Passar ao Duque", "/duque"],
@@ -409,12 +479,6 @@ function abrir(d) {
     b.addEventListener("click", () => pedir(d, cmd));
     acoes.appendChild(b);
   }
-  if (d.link) {
-    const a = document.createElement("a");
-    a.href = d.link;
-    a.textContent = "💬 Tópico";
-    acoes.appendChild(a);
-  }
   if (d.hist) {
     const h = document.createElement("a");
     h.href = d.hist;
@@ -423,10 +487,10 @@ function abrir(d) {
   }
   corpo.appendChild(acoes);
   ficha.hidden = false;
+  if (noFim) corpo.scrollTop = corpo.scrollHeight;
 }
 
-document.getElementById("voltar")
-  .addEventListener("click", () => { ficha.hidden = true; });
+$("voltar").addEventListener("click", () => { ficha.hidden = true; aberto = null; });
 for (const aba of document.querySelectorAll(".num")) {
   aba.addEventListener("click", () => {
     for (const o of document.querySelectorAll(".num")) {
@@ -437,44 +501,18 @@ for (const aba of document.querySelectorAll(".num")) {
   });
 }
 busca.addEventListener("input", desenhar);
+$("atualizar").addEventListener("click", () => { ULTIMO_ARQ = ""; ciclo(); });
 
-const tg = window.Telegram && window.Telegram.WebApp;
-
-// O único caminho de volta que não abre porta na rede: sendData entrega
-// o pedido ao bot pelo próprio Telegram — e só existe quando o app foi
-// aberto pelo botão de TECLADO da conversa com o bot. O app fecha ao
-// enviar; a resposta do tópico chega na conversa, com o botão renovado.
-function pedir(d, texto) {
-  const pedido = JSON.stringify({c: (d.canal || "").toLowerCase() === "wpp"
-                                    ? "wa" : (d.canal || "").toLowerCase(),
-                                 k: d.chave, t: texto});
-  if (DEMO) { alert("Exemplo: nada é enviado. Abra pelo botão Plantão do bot."); return; }
-  if (!d.chave) { alert("Esta conversa não tem chave — abra o painel de novo."); return; }
-  if (!(tg && tg.sendData)) { alert("Abra pelo botão Plantão na conversa com o bot."); return; }
-  tg.sendData(pedido);
-}
-document.addEventListener("click", (ev) => {
-  const b = ev.target.closest && ev.target.closest("#atualizar");
-  if (!b) return;
-  if (tg && tg.sendData && !DEMO) tg.sendData(JSON.stringify({t: "/plantao"}));
-  else location.reload();
-});
-
-// Dentro de um Mini App, <a href="https://t.me/..."> nao navega: o
-// webview engole o clique e nada acontece (dono, 22/09, no botao
-// Responder). O Telegram exige openTelegramLink -- e ele so sai da tela
-// do app quando o app fecha, entao fechamos junto.
+// Histórico abre o tópico sem fechar o app (openTelegramLink não fecha
+// desde o Bot API 7.0 — core.telegram.org/bots/webapps).
 document.addEventListener("click", (ev) => {
   const a = ev.target.closest && ev.target.closest('a[href^="https://t.me/"]');
   if (!a) return;
   ev.preventDefault();
-  if (tg && tg.openTelegramLink) {
-    tg.openTelegramLink(a.href);
-    if (tg.close) tg.close();
-  } else {
-    window.open(a.href, "_blank");     // fora do Telegram, link normal
-  }
+  if (tg && tg.openTelegramLink) tg.openTelegramLink(a.href);
+  else window.open(a.href, "_blank");
 });
+
 if (tg) {
   tg.ready();
   tg.expand();
@@ -483,15 +521,39 @@ if (tg) {
   }
 }
 
-lerDadosDaURL().then((pacote) => {
-  aplicarPacote(pacote);
-  document.getElementById("tarja").hidden = !DEMO;
-  document.getElementById("rodape").textContent = DEMO
-    ? "Dados de exemplo — este link não traz o plantão real."
-    : "Plantão de " + new Date(PACOTE.em * 1000).toLocaleString("pt-BR");
-  contar();
-  desenhar();
-});
+// ------------------------------------------------------------ laço
+let rodando = false;
+async function ciclo() {
+  if (rodando) return;
+  rodando = true;
+  try {
+    const mudou = await buscar();
+    FALHAS = 0;
+    if (PENDENTES.length && Date.now() - ULTIMO_ENVIO > 6000) empurrar();
+    if (mudou) {
+      contar();
+      desenhar();
+      if (aberto && !ficha.hidden) desenharFicha();
+    }
+    status("ao vivo · atualizado " + (ESTADO && ESTADO.em
+      ? new Date(ESTADO.em * 1000).toLocaleTimeString("pt-BR") : ""));
+  } catch (e) {
+    FALHAS += 1;
+    if (FALHAS > 2) status("sem conexão com o plantão (" + e.message + ")", true);
+  } finally {
+    rodando = false;
+  }
+}
+
+if (AO_VIVO) {
+  status("carregando…");
+  ciclo();
+  setInterval(ciclo, 2000);
+  setInterval(() => { contar(); }, 30000);     // relógio dos "há X min"
+} else {
+  $("tarja").hidden = false;
+  status("Sem conexão: abra pelo botão Plantão da conversa com o bot.", true);
+}
 </script>
 </body>
 </html>
